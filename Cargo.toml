@@ -7,4 +7,6 @@ edition = "2018"
 [dependencies]
 vm = { path = "vm" }
 memory = { path = "memory" }
+boot = { path = "boot" }
+boot_gen = { path = "boot_gen" }
 

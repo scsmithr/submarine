@@ -1,1 +1,2 @@
-mod region;
+mod memorymap;
+pub use memorymap::MemoryMap;
