@@ -1,0 +1,10 @@
+[package]
+name = "submarine"
+version = "0.1.0"
+authors = ["Sean Smith <scsmithr@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+vm = { path = "vm" }
+memory = { path = "memory" }
+
