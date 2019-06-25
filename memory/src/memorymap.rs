@@ -1,4 +1,5 @@
 use std::io;
+use std::io::Read;
 use std::io::Write;
 
 #[derive(Debug)]
@@ -16,7 +17,7 @@ pub struct MemoryMap {
 }
 
 impl MemoryMap {
-    fn new(size: usize) -> Result<Self> {
+    pub fn new(size: usize) -> Result<Self> {
         let load_addr: *mut u8 = unsafe {
             libc::mmap(
                 std::ptr::null_mut(),
@@ -53,10 +54,24 @@ impl MemoryMap {
             return Err(Error::OutOfBounds);
         }
         unsafe {
-            let mut slice: &mut [u8] =
-                &mut std::slice::from_raw_parts_mut(self.addr, self.size)[pos..];
+            let mut slice = &mut self.as_mut_slice()[pos..];
             Ok(slice.write(buf).map_err(Error::WriteFailed)?)
         }
+    }
+
+    pub fn read_from<F: Read>(&mut self, src: &mut F, offset: usize, count: usize) -> Result<()> {
+        let end = offset + count - 1;
+        if end >= self.size {
+            return Err(Error::OutOfBounds);
+        }
+        unsafe {
+            let slice = &mut self.as_mut_slice()[offset..end];
+            Ok(src.read_exact(slice).map_err(Error::WriteFailed)?)
+        }
+    }
+
+    unsafe fn as_mut_slice(&self) -> &mut [u8] {
+        std::slice::from_raw_parts_mut(self.addr, self.size)
     }
 }
 

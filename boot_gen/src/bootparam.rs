@@ -3044,6 +3044,13 @@ fn bindgen_test_layout_setup_header() {
         )
     );
 }
+
+impl Default for setup_header {
+    fn default() -> Self {
+        unsafe { ::std::mem::zeroed() }
+    }
+}
+
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct sys_desc_table {
@@ -3816,6 +3823,13 @@ fn bindgen_test_layout_boot_params() {
         )
     );
 }
+
+impl Default for boot_params {
+    fn default() -> Self {
+        unsafe { ::std::mem::zeroed() }
+    }
+}
+
 pub const x86_hardware_subarch_X86_SUBARCH_PC: x86_hardware_subarch = 0;
 pub const x86_hardware_subarch_X86_SUBARCH_LGUEST: x86_hardware_subarch = 1;
 pub const x86_hardware_subarch_X86_SUBARCH_XEN: x86_hardware_subarch = 2;

@@ -4,6 +4,7 @@
 name = "boot"
 version = "0.1.0"
 dependencies = [
+ "boot_gen 0.1.0",
  "kvm-bindings 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "kvm-ioctls 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "libc 0.2.58 (registry+https://github.com/rust-lang/crates.io-index)",

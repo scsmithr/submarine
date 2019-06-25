@@ -6,6 +6,7 @@ edition = "2018"
 
 [dependencies]
 memory = { path = "../memory" }
+boot_gen = { path = "../boot_gen" }
 
 kvm-bindings = "0.1"
 kvm-ioctls = "0.1.0"
