@@ -1,9 +1,11 @@
 // See https://www.kernel.org/doc/Documentation/x86/boot.txt for boot docs.
 
 extern crate boot_gen;
+extern crate log;
 extern crate memory;
 
 use boot_gen::bootparam::setup_header;
+use log::debug;
 use memory::MemoryMap;
 use std::io;
 use std::io::{Read, Seek, SeekFrom};
@@ -53,7 +55,7 @@ pub fn load_kernel<F: Read + Seek>(mmap: &mut MemoryMap, image: &mut F) -> Resul
 
     hdr.code32_start = K_BZ_LOAD_ADDR;
 
-    println!("start: {}, count: {}", hdr.code32_start, kernel_size);
+    debug!("start: {}, count: {}", hdr.code32_start, kernel_size);
     mmap.read_from(image, hdr.code32_start as usize, kernel_size)
         .map_err(Error::KernelMemoryLoad)?;
 

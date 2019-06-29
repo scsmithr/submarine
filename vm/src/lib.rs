@@ -1,6 +1,11 @@
 extern crate kvm_bindings;
 extern crate kvm_ioctls;
+extern crate log;
 
+extern crate memory;
+
+use log::debug;
+use memory::MemoryRegion;
 use std::io;
 use std::io::Write;
 use std::slice;
@@ -8,6 +13,9 @@ use std::slice;
 #[derive(Debug)]
 pub enum Error {
     Kvm(io::Error),
+    VcpuFd(io::Error),
+    VcpuFailedRun(io::Error),
+    VcpuUnhandled,
 }
 
 type Result<T> = std::result::Result<T, Error>;
@@ -29,6 +37,25 @@ pub struct Vm {
 
 impl Vm {
     pub fn new(kvm: &KvmContext) -> Result<Self> {
+        let fd = kvm.kvm.create_vm().map_err(Error::Kvm)?;
+        Ok(Vm { fd: fd })
+    }
+
+    pub fn init_memory(&mut self, region: MemoryRegion, kvm: &KvmContext) -> Result<()> {
+        let mem_region = kvm_bindings::kvm_userspace_memory_region {
+            slot: 0,
+            guest_phys_addr: region.get_start() as u64,
+            memory_size: region.size() as u64,
+            userspace_addr: region.host_addr() as u64,
+            flags: kvm_bindings::KVM_MEM_LOG_DIRTY_PAGES,
+        };
+        self.fd
+            .set_user_memory_region(mem_region)
+            .map_err(Error::Kvm)?;
+        Ok(())
+    }
+
+    pub fn newTest(kvm: &KvmContext) -> Result<Self> {
         let fd = kvm.kvm.create_vm().map_err(Error::Kvm)?;
         let mem_size = 0x4000;
         let guest_addr: u64 = 0x1000;
@@ -120,5 +147,39 @@ impl Vm {
         }
 
         Ok(Vm { fd: fd })
+    }
+}
+
+pub struct Vcpu {
+    fd: kvm_ioctls::VcpuFd,
+}
+
+impl Vcpu {
+    pub fn new(vm: &Vm) -> Result<Self> {
+        let vcpu_fd = vm.fd.create_vcpu(0).map_err(Error::VcpuFd)?;
+        Ok(Vcpu { fd: vcpu_fd })
+    }
+
+    pub fn run(&self) -> Result<()> {
+        match self.fd.run().map_err(Error::VcpuFailedRun)? {
+            kvm_ioctls::VcpuExit::IoIn(addr, data) => {
+                // TODO
+                Ok(())
+            }
+            kvm_ioctls::VcpuExit::IoOut(addr, data) => {
+                // TODO
+                Ok(())
+            }
+            kvm_ioctls::VcpuExit::MmioRead(addr, data) => {
+                // TODO
+                Ok(())
+            }
+            kvm_ioctls::VcpuExit::MmioWrite(addr, data) => {
+                // TODO
+                Ok(())
+            }
+            kvm_ioctls::VcpuExit::Hlt => Err(Error::VcpuUnhandled),
+            _ => Err(Error::VcpuUnhandled),
+        }
     }
 }

@@ -7,6 +7,9 @@ edition = "2018"
 [dependencies]
 vm = { path = "vm" }
 memory = { path = "memory" }
+device = { path = "device" }
 boot = { path = "boot" }
 boot_gen = { path = "boot_gen" }
 
+log = "0.4"
+env_logger = "0.6"

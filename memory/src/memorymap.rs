@@ -70,6 +70,10 @@ impl MemoryMap {
         }
     }
 
+    pub fn as_ptr(&self) -> *mut u8 {
+        self.addr
+    }
+
     unsafe fn as_mut_slice(&self) -> &mut [u8] {
         std::slice::from_raw_parts_mut(self.addr, self.size)
     }

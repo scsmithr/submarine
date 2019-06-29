@@ -1,12 +1,11 @@
 [package]
-name = "boot"
+name = "device"
 version = "0.1.0"
 authors = ["Sean Smith <scsmithr@gmail.com>"]
 edition = "2018"
 
 [dependencies]
 memory = { path = "../memory" }
-boot_gen = { path = "../boot_gen" }
 
 kvm-bindings = "0.1"
 kvm-ioctls = "0.1.0"
