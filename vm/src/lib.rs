@@ -2,8 +2,10 @@ extern crate kvm_bindings;
 extern crate kvm_ioctls;
 extern crate log;
 
+extern crate device;
 extern crate memory;
 
+use device::Device;
 use log::debug;
 use memory::MemoryRegion;
 use std::io;
