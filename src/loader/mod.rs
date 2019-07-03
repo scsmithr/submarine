@@ -1,12 +1,11 @@
 // See https://www.kernel.org/doc/Documentation/x86/boot.txt for boot docs.
 
-extern crate boot_gen;
 extern crate log;
-extern crate memory;
+extern crate boot_gen;
 
+use crate::memory::{MemoryAddr, MemoryMap, Error as MemoryError};
 use boot_gen::bootparam::setup_header;
 use log::debug;
-use memory::MemoryMap;
 use std::io;
 use std::io::{Read, Seek, SeekFrom};
 use std::mem;
@@ -15,7 +14,7 @@ use std::mem;
 pub enum Error {
     KernelSeekEnd(io::Error),
     KernelSeekHdr(io::Error),
-    KernelMemoryLoad(memory::Error),
+    KernelMemoryLoad(MemoryError),
 
     InvalidImage,
 
@@ -31,7 +30,14 @@ const K_BZ_LOAD_ADDR: u32 = 0x0010_0000;
 
 const K_64BIT_OFFSET: u16 = 0x0200;
 
-pub fn load_kernel<F: Read + Seek>(mmap: &mut MemoryMap, image: &mut F) -> Result<()> {
+pub struct LoadInfo {
+    pub kernel_start: MemoryAddr,
+    pub entry_point: MemoryAddr,
+    pub heap_end: MemoryAddr,
+}
+
+/// Load the kernel image into memory.
+pub fn load_kernel<F: Read + Seek>(mmap: &mut MemoryMap, image: &mut F) -> Result<LoadInfo> {
     let mut kernel_size = image.seek(SeekFrom::End(0)).map_err(Error::KernelSeekEnd)? as usize;
     let mut hdr = setup_header::default();
     image
@@ -59,8 +65,12 @@ pub fn load_kernel<F: Read + Seek>(mmap: &mut MemoryMap, image: &mut F) -> Resul
     mmap.read_from(image, hdr.code32_start as usize, kernel_size)
         .map_err(Error::KernelMemoryLoad)?;
 
-    // TODO: Return kernel start address + 0x0200
-    Ok(())
+    let info = LoadInfo{
+        kernel_start: MemoryAddr(hdr.code32_start as usize),
+        entry_point: MemoryAddr(hdr.code32_start as usize + K_64BIT_OFFSET as usize),
+        heap_end: MemoryAddr(hdr.code32_start as usize + kernel_size as usize),
+    };
+    Ok(info)
 }
 
 unsafe fn read_struct<F: Read, T>(f: &mut F, s: &mut T) -> Result<()> {

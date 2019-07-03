@@ -5,11 +5,10 @@ authors = ["Sean Smith <scsmithr@gmail.com>"]
 edition = "2018"
 
 [dependencies]
-vm = { path = "vm" }
-memory = { path = "memory" }
-device = { path = "device" }
-boot = { path = "boot" }
-boot_gen = { path = "boot_gen" }
+boot_gen = {path = "./boot_gen"}
 
 log = "0.4"
 env_logger = "0.6"
+kvm-bindings = "0.1"
+kvm-ioctls = "0.1.0"
+libc = "0.2"

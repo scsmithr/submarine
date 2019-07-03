@@ -5,4 +5,3 @@ authors = ["Sean Smith <scsmithr@gmail.com>"]
 edition = "2018"
 
 [dependencies]
-libc = "0.2"

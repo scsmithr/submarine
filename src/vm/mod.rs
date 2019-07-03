@@ -2,12 +2,9 @@ extern crate kvm_bindings;
 extern crate kvm_ioctls;
 extern crate log;
 
-extern crate device;
-extern crate memory;
-
-use device::Device;
+use crate::device::{Bus, Device};
+use crate::memory::{MemoryAddr, MemoryRegion};
 use log::debug;
-use memory::MemoryRegion;
 use std::io;
 use std::io::Write;
 use std::slice;
@@ -18,6 +15,7 @@ pub enum Error {
     VcpuFd(io::Error),
     VcpuFailedRun(io::Error),
     VcpuUnhandled,
+    VcpuFailedIO,
 }
 
 type Result<T> = std::result::Result<T, Error>;
@@ -57,7 +55,7 @@ impl Vm {
         Ok(())
     }
 
-    pub fn newTest(kvm: &KvmContext) -> Result<Self> {
+    pub fn new_test(kvm: &KvmContext) -> Result<Self> {
         let fd = kvm.kvm.create_vm().map_err(Error::Kvm)?;
         let mem_size = 0x4000;
         let guest_addr: u64 = 0x1000;
@@ -148,40 +146,85 @@ impl Vm {
             }
         }
 
-        Ok(Vm { fd: fd })
+        Ok(Vm { fd })
     }
 }
 
+/// A wrapper around a KVM provided virtual cpu.
 pub struct Vcpu {
     fd: kvm_ioctls::VcpuFd,
+    mmio_bus: Bus,
+    pio_bus: Bus,
 }
 
 impl Vcpu {
-    pub fn new(vm: &Vm) -> Result<Self> {
+    /// Create a new virtual cpu with the provided io busses for the given vm.
+    pub fn new(vm: &Vm, mmio_bus: Bus, pio_bus: Bus) -> Result<Self> {
         let vcpu_fd = vm.fd.create_vcpu(0).map_err(Error::VcpuFd)?;
-        Ok(Vcpu { fd: vcpu_fd })
+        Ok(Vcpu {
+            fd: vcpu_fd,
+            mmio_bus,
+            pio_bus,
+        })
     }
 
+    /// Sets the appropriate vcpu regs for booting into a linux kernel.
+    pub fn set_kernel_regs(vm: &Vm, kernel_start: MemoryAddr) -> Result<()> {
+        Ok(())
+    }
+
+    /// Run until vcpu exit, handling io exits.
+    ///
+    /// Any other vcpu exit is treated as unhandled.
     pub fn run(&self) -> Result<()> {
         match self.fd.run().map_err(Error::VcpuFailedRun)? {
             kvm_ioctls::VcpuExit::IoIn(addr, data) => {
-                // TODO
+                self.pio_bus
+                    .read(MemoryAddr(addr as usize), data)
+                    .map_err(|_| Error::VcpuFailedIO)?;
                 Ok(())
             }
             kvm_ioctls::VcpuExit::IoOut(addr, data) => {
-                // TODO
+                self.pio_bus
+                    .write(MemoryAddr(addr as usize), data)
+                    .map_err(|_| Error::VcpuFailedIO)?;
                 Ok(())
             }
             kvm_ioctls::VcpuExit::MmioRead(addr, data) => {
-                // TODO
+                self.mmio_bus
+                    .read(MemoryAddr(addr as usize), data)
+                    .map_err(|_| Error::VcpuFailedIO)?;
                 Ok(())
             }
             kvm_ioctls::VcpuExit::MmioWrite(addr, data) => {
-                // TODO
+                self.pio_bus
+                    .write(MemoryAddr(addr as usize), data)
+                    .map_err(|_| Error::VcpuFailedIO)?;
+
                 Ok(())
             }
             kvm_ioctls::VcpuExit::Hlt => Err(Error::VcpuUnhandled),
             _ => Err(Error::VcpuUnhandled),
         }
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    /// Helper for creating a vm for tests.
+    fn new_test_vm() -> Vm {
+        let kvm = KvmContext::new().unwrap();
+        let vm = Vm::new(&kvm).unwrap();
+        vm
+    }
+
+    #[test]
+    fn new_vcpu() {
+        let vm = new_test_vm();
+        let pio_bus = Bus::new();
+        let mmio_bus = Bus::new();
+        let vcpu = Vcpu::new(&vm, mmio_bus, pio_bus).unwrap();
     }
 }

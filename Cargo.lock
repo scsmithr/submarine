@@ -19,39 +19,13 @@ dependencies = [
 ]
 
 [[package]]
-name = "boot"
-version = "0.1.0"
-dependencies = [
- "boot_gen 0.1.0",
- "kvm-bindings 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "kvm-ioctls 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "libc 0.2.58 (registry+https://github.com/rust-lang/crates.io-index)",
- "log 0.4.6 (registry+https://github.com/rust-lang/crates.io-index)",
- "memory 0.1.0",
-]
-
-[[package]]
 name = "boot_gen"
 version = "0.1.0"
-dependencies = [
- "libc 0.2.58 (registry+https://github.com/rust-lang/crates.io-index)",
-]
 
 [[package]]
 name = "cfg-if"
 version = "0.1.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-
-[[package]]
-name = "device"
-version = "0.1.0"
-dependencies = [
- "kvm-bindings 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "kvm-ioctls 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "libc 0.2.58 (registry+https://github.com/rust-lang/crates.io-index)",
- "log 0.4.6 (registry+https://github.com/rust-lang/crates.io-index)",
- "memory 0.1.0",
-]
 
 [[package]]
 name = "env_logger"
@@ -111,15 +85,6 @@ version = "2.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
-name = "memory"
-version = "0.1.0"
-dependencies = [
- "kvm-bindings 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "kvm-ioctls 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "libc 0.2.58 (registry+https://github.com/rust-lang/crates.io-index)",
-]
-
-[[package]]
 name = "numtoa"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -166,13 +131,12 @@ dependencies = [
 name = "submarine"
 version = "0.1.0"
 dependencies = [
- "boot 0.1.0",
  "boot_gen 0.1.0",
- "device 0.1.0",
  "env_logger 0.6.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "kvm-bindings 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "kvm-ioctls 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "libc 0.2.58 (registry+https://github.com/rust-lang/crates.io-index)",
  "log 0.4.6 (registry+https://github.com/rust-lang/crates.io-index)",
- "memory 0.1.0",
- "vm 0.1.0",
 ]
 
 [[package]]
@@ -211,18 +175,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 name = "utf8-ranges"
 version = "1.0.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-
-[[package]]
-name = "vm"
-version = "0.1.0"
-dependencies = [
- "device 0.1.0",
- "kvm-bindings 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "kvm-ioctls 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "libc 0.2.58 (registry+https://github.com/rust-lang/crates.io-index)",
- "log 0.4.6 (registry+https://github.com/rust-lang/crates.io-index)",
- "memory 0.1.0",
-]
 
 [[package]]
 name = "winapi"
