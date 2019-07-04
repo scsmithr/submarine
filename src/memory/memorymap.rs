@@ -33,7 +33,7 @@ impl Region for MemoryMmap {
     }
 
     fn read_from<F: Read>(&mut self, addr: MemoryAddr, f: &mut F, count: usize) -> Result<usize> {
-        self.read_from(addr, f, count)
+        self.region.read_from(addr, f, count)
     }
 
     // TODO: Implement.
