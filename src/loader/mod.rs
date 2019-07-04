@@ -3,7 +3,7 @@
 extern crate log;
 extern crate boot_gen;
 
-use crate::memory::{MemoryAddr, MemoryMap, Error as MemoryError};
+use crate::memory::{MemoryAddr, Memory, Error as MemoryError};
 use boot_gen::bootparam::setup_header;
 use log::debug;
 use std::io;
@@ -37,7 +37,7 @@ pub struct LoadInfo {
 }
 
 /// Load the kernel image into memory.
-pub fn load_kernel<F: Read + Seek>(mmap: &mut MemoryMap, image: &mut F) -> Result<LoadInfo> {
+pub fn load_kernel<F: Read + Seek, M: Memory>(mem: &mut M, image: &mut F) -> Result<LoadInfo> {
     let mut kernel_size = image.seek(SeekFrom::End(0)).map_err(Error::KernelSeekEnd)? as usize;
     let mut hdr = setup_header::default();
     image
@@ -62,11 +62,11 @@ pub fn load_kernel<F: Read + Seek>(mmap: &mut MemoryMap, image: &mut F) -> Resul
     hdr.code32_start = K_BZ_LOAD_ADDR;
 
     debug!("start: {}, count: {}", hdr.code32_start, kernel_size);
-    mmap.read_from(image, hdr.code32_start as usize, kernel_size)
+    mem.read_from(MemoryAddr::from(hdr.code32_start), image, kernel_size)
         .map_err(Error::KernelMemoryLoad)?;
 
     let info = LoadInfo{
-        kernel_start: MemoryAddr(hdr.code32_start as usize),
+        kernel_start: MemoryAddr::from(hdr.code32_start),
         entry_point: MemoryAddr(hdr.code32_start as usize + K_64BIT_OFFSET as usize),
         heap_end: MemoryAddr(hdr.code32_start as usize + kernel_size as usize),
     };
@@ -84,6 +84,7 @@ unsafe fn read_struct<F: Read, T>(f: &mut F, s: &mut T) -> Result<()> {
 mod test {
     use super::*;
     use std::io::Cursor;
+    use crate::memory::memorymap::MemoryMmap;
 
     fn read_bzimage() -> Vec<u8> {
         let mut bs = Vec::new();
@@ -91,9 +92,9 @@ mod test {
         bs
     }
 
-    fn new_memory_map() -> MemoryMap {
+    fn new_memory_map() ->  MemoryMmap{
         const SIZE: usize = 10 << 20;
-        MemoryMap::new(SIZE).unwrap()
+        MemoryMmap::new(SIZE).unwrap()
     }
 
     #[test]

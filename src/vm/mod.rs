@@ -3,7 +3,8 @@ extern crate kvm_ioctls;
 extern crate log;
 
 use crate::device::{Bus, Device};
-use crate::memory::{MemoryAddr, MemoryRegion};
+use crate::memory::{MemoryAddr, Memory, Region};
+use crate::memory::memorymap::{MemoryMmap};
 use log::debug;
 use std::io;
 use std::io::Write;
@@ -14,6 +15,7 @@ pub enum Error {
     Kvm(io::Error),
     VcpuFd(io::Error),
     VcpuFailedRun(io::Error),
+    VcpuRegisters(io::Error),
     VcpuUnhandled,
     VcpuFailedIO,
 }
@@ -41,12 +43,12 @@ impl Vm {
         Ok(Vm { fd: fd })
     }
 
-    pub fn init_memory(&mut self, region: MemoryRegion, kvm: &KvmContext) -> Result<()> {
+    pub fn init_memory(&mut self, mem: MemoryMmap, kvm: &KvmContext) -> Result<()> {
         let mem_region = kvm_bindings::kvm_userspace_memory_region {
             slot: 0,
-            guest_phys_addr: region.get_start() as u64,
-            memory_size: region.size() as u64,
-            userspace_addr: region.host_addr() as u64,
+            guest_phys_addr: 0 as u64,
+            memory_size: mem.size() as u64,
+            userspace_addr: mem.as_ptr() as u64,
             flags: kvm_bindings::KVM_MEM_LOG_DIRTY_PAGES,
         };
         self.fd
@@ -169,7 +171,12 @@ impl Vcpu {
     }
 
     /// Sets the appropriate vcpu regs for booting into a linux kernel.
-    pub fn set_kernel_regs(vm: &Vm, kernel_start: MemoryAddr) -> Result<()> {
+    pub fn configure_kernel_load(&self, vm: &Vm, kernel_start: MemoryAddr) -> Result<()> {
+        let regs = kvm_bindings::kvm_regs{
+            rip: kernel_start.0 as u64,
+            ..Default::default()
+        };
+        self.fd.set_regs(&regs).map_err(Error::VcpuRegisters)?;
         Ok(())
     }
 

@@ -10,5 +10,12 @@ fn main() {
     env_logger::init();
 
     let k = vm::KvmContext::new().unwrap();
-    let v = vm::Vm::new_test(&k).unwrap();
+    let mut v = vm::Vm::new(&k).unwrap();
+
+    let mem = memory::memorymap::MemoryMmap::new(1 << 30).unwrap();
+
+    let mut img = Vec::new();
+    img.extend_from_slice(include_bytes!("/boot/vmlinuz-linux"));
+
+    v.init_memory(mem, &k).unwrap();
 }

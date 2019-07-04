@@ -1,22 +1,53 @@
-use std::io;
-use std::io::Read;
-use std::io::Write;
+use std::io::{Read, Write};
+use super::{Region, Memory, Error, Result};
+use super::memoryaddr::MemoryAddr;
 
-#[derive(Debug)]
-pub enum Error {
-    OutOfBounds,
-    ReadFailed(io::Error),
-    WriteFailed(io::Error),
+pub struct MemoryMmap {
+    region: RegionMmap,
 }
 
-type Result<T> = std::result::Result<T, Error>;
+impl MemoryMmap {
+    pub fn new(size: usize) -> Result<Self> {
+        let region = RegionMmap::new(size)?;
+        Ok(MemoryMmap{region})
+    }
 
-pub struct MemoryMap {
+    pub fn as_ptr(&self) -> *mut u8 {
+        self.region.as_ptr()
+    }
+}
+
+impl Memory for MemoryMmap {}
+
+impl Region for MemoryMmap {
+    fn size(&self) -> usize {
+        self.region.size()
+    }
+
+    fn read(&self, mut buf: &mut [u8], addr: MemoryAddr) -> Result<usize> {
+        self.region.read(buf, addr)
+    }
+
+    fn write(&mut self, buf: &[u8], addr: MemoryAddr) -> Result<usize> {
+        self.region.write(buf, addr)
+    }
+
+    fn read_from<F: Read>(&mut self, addr: MemoryAddr, f: &mut F, count: usize) -> Result<usize> {
+        self.read_from(addr, f, count)
+    }
+
+    // TODO: Implement.
+    fn write_to<F: Write>(&self, addr: MemoryAddr, f: &mut F, count: usize) -> Result<usize> {
+        Ok(0)
+    }
+}
+
+pub struct RegionMmap {
     addr: *mut u8,
     size: usize,
 }
 
-impl MemoryMap {
+impl RegionMmap {
     pub fn new(size: usize) -> Result<Self> {
         let load_addr: *mut u8 = unsafe {
             libc::mmap(
@@ -29,45 +60,17 @@ impl MemoryMap {
             ) as *mut u8
         };
 
-        Ok(MemoryMap {
+        Ok(RegionMmap {
             addr: load_addr,
             size: size,
         })
     }
 
-    pub fn size(&self) -> usize {
-        self.size
-    }
-
-    pub fn read_at(&self, mut buf: &mut [u8], pos: usize) -> Result<usize> {
-        if pos >= self.size {
+    fn check_bounds(&self, addr: &MemoryAddr) -> Result<()> {
+        if addr.0 >= self.size {
             return Err(Error::OutOfBounds);
         }
-        unsafe {
-            let slice: &[u8] = &std::slice::from_raw_parts(self.addr, self.size)[pos..];
-            Ok(buf.write(slice).map_err(Error::ReadFailed)?)
-        }
-    }
-
-    pub fn write_at(&mut self, buf: &[u8], pos: usize) -> Result<usize> {
-        if pos >= self.size {
-            return Err(Error::OutOfBounds);
-        }
-        unsafe {
-            let mut slice = &mut self.as_mut_slice()[pos..];
-            Ok(slice.write(buf).map_err(Error::WriteFailed)?)
-        }
-    }
-
-    pub fn read_from<F: Read>(&mut self, src: &mut F, offset: usize, count: usize) -> Result<()> {
-        let end = offset + count - 1;
-        if end >= self.size {
-            return Err(Error::OutOfBounds);
-        }
-        unsafe {
-            let slice = &mut self.as_mut_slice()[offset..end];
-            Ok(src.read_exact(slice).map_err(Error::WriteFailed)?)
-        }
+        Ok(())
     }
 
     pub fn as_ptr(&self) -> *mut u8 {
@@ -79,24 +82,63 @@ impl MemoryMap {
     }
 }
 
+impl Region for RegionMmap {
+    fn size(&self) -> usize {
+        self.size
+    }
+
+    fn read(&self, mut buf: &mut [u8], addr: MemoryAddr) -> Result<usize> {
+        self.check_bounds(&addr)?;
+        unsafe {
+            let slice: &[u8] = &std::slice::from_raw_parts(self.addr, self.size)[addr.0..];
+            Ok(buf.write(slice).map_err(Error::ReadFailed)?)
+        }
+    }
+
+    fn write(&mut self, buf: &[u8], addr: MemoryAddr) -> Result<usize> {
+        self.check_bounds(&addr)?;
+        unsafe {
+            let mut slice = &mut self.as_mut_slice()[addr.0..];
+            Ok(slice.write(buf).map_err(Error::WriteFailed)?)
+        }
+    }
+
+    fn read_from<F: Read>(&mut self, addr: MemoryAddr, f: &mut F, count: usize) -> Result<usize> {
+        let end = addr.0 + count - 1;
+        if end >= self.size {
+            return Err(Error::OutOfBounds);
+        }
+        unsafe {
+            let slice = &mut self.as_mut_slice()[addr.0..end];
+            Ok(f.read(slice).map_err(Error::ReadFailed)?)
+        }
+    }
+
+    // TODO: Implement.
+    fn write_to<F: Write>(&self, addr: MemoryAddr, f: &mut F, count: usize) -> Result<usize> {
+        Ok(0)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
     fn basic() {
-        let m = MemoryMap::new(256).unwrap();
+        let m = RegionMmap::new(256).unwrap();
         assert_eq!(256, m.size);
     }
 
     #[test]
     fn write_all() {
-        let mut m = MemoryMap::new(4).unwrap();
+        let mut m = RegionMmap::new(4).unwrap();
         let to_write = &[4, 5, 4, 3];
-        let n = m.write_at(to_write, 0).unwrap();
+        let addr = MemoryAddr(0);
+        let n = m.write(to_write, addr.clone()).unwrap();
         assert_eq!(4, n);
         let buf = &mut [0; 4];
-        let n = m.read_at(buf, 0).unwrap();
+        let n = m.read(buf, addr).unwrap();
         assert_eq!(4, n);
         assert_eq!(to_write, buf);
     }

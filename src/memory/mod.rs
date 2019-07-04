@@ -1,26 +1,39 @@
 mod memoryaddr;
-mod memorymap;
-
-pub use memorymap::Error;
-pub use memorymap::MemoryMap;
-
 pub use memoryaddr::MemoryAddr;
 
-pub struct MemoryRegion {
-    start: MemoryAddr,
-    mmap: MemoryMap,
+pub mod memorymap;
+
+use std::io;
+use std::io::{Read, Write};
+
+#[derive(Debug)]
+pub enum Error {
+    OutOfBounds,
+    ReadFailed(io::Error),
+    WriteFailed(io::Error),
 }
 
-impl MemoryRegion {
-    pub fn get_start(&self) -> usize {
-        self.start.0
-    }
+type Result<T> = std::result::Result<T, Error>;
 
-    pub fn size(&self) -> usize {
-        self.mmap.size()
-    }
+pub trait Memory: Region {}
 
-    pub fn host_addr(&self) -> *mut u8 {
-        self.mmap.as_ptr()
-    }
+pub trait Region {
+    /// Region size in bytes.
+    fn size(&self) -> usize;
+
+    /// Read from memory into the provided buffer start at address. The amount
+    /// read will be returned.
+    fn read(&self, buf: &mut [u8], addr: MemoryAddr) -> Result<usize>;
+
+    /// Write to memory using the buffer starting at address. The amount written
+    /// will be returned.
+    fn write(&mut self, buf: &[u8], addr: MemoryAddr) -> Result<usize>;
+
+    /// Write to the writer starting at address. The amount written will be
+    /// returned.
+    fn write_to<F: Write>(&self, addr: MemoryAddr, f: &mut F, count: usize) -> Result<usize>;
+
+    /// Read from the reader into memory starting at address. The amount read
+    /// will be returned
+    fn read_from<F: Read>(&mut self, addr: MemoryAddr, f: &mut F, count: usize) -> Result<usize>;
 }
