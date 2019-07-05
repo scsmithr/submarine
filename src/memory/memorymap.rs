@@ -1,6 +1,6 @@
-use std::io::{Read, Write};
-use super::{Region, Memory, Error, Result};
 use super::memoryaddr::MemoryAddr;
+use super::{Addressable, Error, Memory, Result};
+use std::io::{Read, Write};
 
 pub struct MemoryMmap {
     region: RegionMmap,
@@ -9,7 +9,7 @@ pub struct MemoryMmap {
 impl MemoryMmap {
     pub fn new(size: usize) -> Result<Self> {
         let region = RegionMmap::new(size)?;
-        Ok(MemoryMmap{region})
+        Ok(MemoryMmap { region })
     }
 
     pub fn as_ptr(&self) -> *mut u8 {
@@ -19,9 +19,9 @@ impl MemoryMmap {
 
 impl Memory for MemoryMmap {}
 
-impl Region for MemoryMmap {
-    fn size(&self) -> usize {
-        self.region.size()
+impl Addressable for MemoryMmap {
+    fn len(&self) -> usize {
+        self.region.len()
     }
 
     fn read(&self, mut buf: &mut [u8], addr: MemoryAddr) -> Result<usize> {
@@ -82,8 +82,8 @@ impl RegionMmap {
     }
 }
 
-impl Region for RegionMmap {
-    fn size(&self) -> usize {
+impl Addressable for RegionMmap {
+    fn len(&self) -> usize {
         self.size
     }
 

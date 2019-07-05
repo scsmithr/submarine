@@ -13,13 +13,13 @@ pub enum Error {
     WriteFailed(io::Error),
 }
 
-type Result<T> = std::result::Result<T, Error>;
+pub type Result<T> = std::result::Result<T, Error>;
 
-pub trait Memory: Region {}
+pub trait Memory: Addressable {}
 
-pub trait Region {
-    /// Region size in bytes.
-    fn size(&self) -> usize;
+pub trait Addressable {
+    /// Region length in bytes.
+    fn len(&self) -> usize;
 
     /// Read from memory into the provided buffer start at address. The amount
     /// read will be returned.
@@ -29,11 +29,15 @@ pub trait Region {
     /// will be returned.
     fn write(&mut self, buf: &[u8], addr: MemoryAddr) -> Result<usize>;
 
-    /// Write to the writer starting at address. The amount written will be
-    /// returned.
-    fn write_to<F: Write>(&self, addr: MemoryAddr, f: &mut F, count: usize) -> Result<usize>;
-
     /// Read from the reader into memory starting at address. The amount read
     /// will be returned
-    fn read_from<F: Read>(&mut self, addr: MemoryAddr, f: &mut F, count: usize) -> Result<usize>;
+    fn read_from<F: Read>(&mut self, addr: MemoryAddr, f: &mut F, count: usize) -> Result<usize>
+    where
+        Self: Sized;
+
+    /// Write to the writer starting at address. The amount written will be
+    /// returned.
+    fn write_to<F: Write>(&self, addr: MemoryAddr, f: &mut F, count: usize) -> Result<usize>
+    where
+        Self: Sized;
 }
