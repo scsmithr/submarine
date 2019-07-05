@@ -1,3 +1,5 @@
+pub mod legacy;
+
 use crate::memory::{Addressable, MemoryAddr};
 use std::cmp::{Ord, Ordering, PartialEq};
 use std::collections::BTreeMap;
@@ -15,7 +17,7 @@ type Result<T> = std::result::Result<T, Error>;
 
 /// Describes the memory range for a device on a bus.
 #[derive(Eq, Debug)]
-pub struct Range(MemoryAddr, usize);
+pub struct Range(pub MemoryAddr, pub usize);
 
 impl Range {
     pub fn contains_addr(&self, addr: &MemoryAddr) -> bool {

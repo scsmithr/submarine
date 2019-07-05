@@ -1,5 +1,5 @@
 use super::memoryaddr::MemoryAddr;
-use super::{Addressable, Error, Memory, Result};
+use super::{Addressable, Error, Memory, Region, Result};
 use std::io::{Read, Write};
 
 pub struct MemoryMmap {
@@ -19,17 +19,9 @@ impl MemoryMmap {
 
 impl Memory for MemoryMmap {}
 
-impl Addressable for MemoryMmap {
+impl Region for MemoryMmap {
     fn len(&self) -> usize {
         self.region.len()
-    }
-
-    fn read(&self, mut buf: &mut [u8], addr: MemoryAddr) -> Result<usize> {
-        self.region.read(buf, addr)
-    }
-
-    fn write(&mut self, buf: &[u8], addr: MemoryAddr) -> Result<usize> {
-        self.region.write(buf, addr)
     }
 
     fn read_from<F: Read>(&mut self, addr: MemoryAddr, f: &mut F, count: usize) -> Result<usize> {
@@ -39,6 +31,16 @@ impl Addressable for MemoryMmap {
     // TODO: Implement.
     fn write_to<F: Write>(&self, addr: MemoryAddr, f: &mut F, count: usize) -> Result<usize> {
         Ok(0)
+    }
+}
+
+impl Addressable for MemoryMmap {
+    fn read(&self, mut buf: &mut [u8], addr: MemoryAddr) -> Result<usize> {
+        self.region.read(buf, addr)
+    }
+
+    fn write(&mut self, buf: &[u8], addr: MemoryAddr) -> Result<usize> {
+        self.region.write(buf, addr)
     }
 }
 
@@ -82,25 +84,9 @@ impl RegionMmap {
     }
 }
 
-impl Addressable for RegionMmap {
+impl Region for RegionMmap {
     fn len(&self) -> usize {
         self.size
-    }
-
-    fn read(&self, mut buf: &mut [u8], addr: MemoryAddr) -> Result<usize> {
-        self.check_bounds(&addr)?;
-        unsafe {
-            let slice: &[u8] = &std::slice::from_raw_parts(self.addr, self.size)[addr.0..];
-            Ok(buf.write(slice).map_err(Error::ReadFailed)?)
-        }
-    }
-
-    fn write(&mut self, buf: &[u8], addr: MemoryAddr) -> Result<usize> {
-        self.check_bounds(&addr)?;
-        unsafe {
-            let mut slice = &mut self.as_mut_slice()[addr.0..];
-            Ok(slice.write(buf).map_err(Error::WriteFailed)?)
-        }
     }
 
     fn read_from<F: Read>(&mut self, addr: MemoryAddr, f: &mut F, count: usize) -> Result<usize> {
@@ -117,6 +103,24 @@ impl Addressable for RegionMmap {
     // TODO: Implement.
     fn write_to<F: Write>(&self, addr: MemoryAddr, f: &mut F, count: usize) -> Result<usize> {
         Ok(0)
+    }
+}
+
+impl Addressable for RegionMmap {
+    fn read(&self, mut buf: &mut [u8], addr: MemoryAddr) -> Result<usize> {
+        self.check_bounds(&addr)?;
+        unsafe {
+            let slice: &[u8] = &std::slice::from_raw_parts(self.addr, self.size)[addr.0..];
+            Ok(buf.write(slice).map_err(Error::ReadFailed)?)
+        }
+    }
+
+    fn write(&mut self, buf: &[u8], addr: MemoryAddr) -> Result<usize> {
+        self.check_bounds(&addr)?;
+        unsafe {
+            let mut slice = &mut self.as_mut_slice()[addr.0..];
+            Ok(slice.write(buf).map_err(Error::WriteFailed)?)
+        }
     }
 }
 

@@ -4,8 +4,8 @@ extern crate log;
 
 use crate::device::Bus;
 use crate::memory::memorymap::MemoryMmap;
-use crate::memory::{Addressable, Memory, MemoryAddr};
-use log::debug;
+use crate::memory::{Addressable, Memory, MemoryAddr, Region};
+use log::{debug, error};
 use std::io;
 use std::io::Write;
 use std::slice;
@@ -43,7 +43,7 @@ impl Vm {
         Ok(Vm { fd: fd })
     }
 
-    pub fn init_memory(&mut self, mem: MemoryMmap, kvm: &KvmContext) -> Result<()> {
+    pub fn init_memory(&mut self, mem: &MemoryMmap, kvm: &KvmContext) -> Result<()> {
         let mem_region = kvm_bindings::kvm_userspace_memory_region {
             slot: 0,
             guest_phys_addr: 0 as u64,
@@ -171,9 +171,16 @@ impl Vcpu {
     }
 
     /// Sets the appropriate vcpu regs for booting into a linux kernel.
-    pub fn configure_kernel_load(&self, vm: &Vm, kernel_start: MemoryAddr) -> Result<()> {
+    pub fn configure_kernel_load(
+        &self,
+        vm: &Vm,
+        entry_point: MemoryAddr,
+        heap_end: MemoryAddr,
+    ) -> Result<()> {
         let regs = kvm_bindings::kvm_regs {
-            rip: kernel_start.0 as u64,
+            rip: entry_point.0 as u64,
+            rsp: heap_end.0 as u64,
+            rbp: heap_end.0 as u64,
             ..Default::default()
         };
         self.fd.set_regs(&regs).map_err(Error::VcpuRegisters)?;
@@ -186,17 +193,13 @@ impl Vcpu {
     pub fn run(&self) -> Result<()> {
         match self.fd.run().map_err(Error::VcpuFailedRun)? {
             kvm_ioctls::VcpuExit::IoIn(addr, data) => {
-                debug!("vcpu exit: io in, addr: {}", addr);
-                self.pio_bus
-                    .read(MemoryAddr(addr as usize), data)
-                    .map_err(|_| Error::VcpuFailedIO)?;
+                debug!("vcpu exit: io in, addr: {}, data: {:?}", addr, data);
+                let _ = self.pio_bus.read(MemoryAddr(addr as usize), data);
                 Ok(())
             }
             kvm_ioctls::VcpuExit::IoOut(addr, data) => {
                 debug!("vcpu exit: io out, addr: {}", addr);
-                self.pio_bus
-                    .write(MemoryAddr(addr as usize), data)
-                    .map_err(|_| Error::VcpuFailedIO)?;
+                let _ = self.pio_bus.write(MemoryAddr(addr as usize), data);
                 Ok(())
             }
             kvm_ioctls::VcpuExit::MmioRead(addr, data) => {
@@ -213,8 +216,14 @@ impl Vcpu {
                     .map_err(|_| Error::VcpuFailedIO)?;
                 Ok(())
             }
-            kvm_ioctls::VcpuExit::Hlt => Err(Error::VcpuUnhandled),
-            _ => Err(Error::VcpuUnhandled),
+            kvm_ioctls::VcpuExit::Hlt => {
+                error!("vcpu halt");
+                Err(Error::VcpuUnhandled)
+            }
+            e => {
+                error!("unhandled vcpu exit: {:?}", e);
+                Err(Error::VcpuUnhandled)
+            }
         }
     }
 }

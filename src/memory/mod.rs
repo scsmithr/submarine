@@ -15,19 +15,11 @@ pub enum Error {
 
 pub type Result<T> = std::result::Result<T, Error>;
 
-pub trait Memory: Addressable {}
+pub trait Memory: Region {}
 
-pub trait Addressable {
+pub trait Region: Addressable {
     /// Region length in bytes.
     fn len(&self) -> usize;
-
-    /// Read from memory into the provided buffer start at address. The amount
-    /// read will be returned.
-    fn read(&self, buf: &mut [u8], addr: MemoryAddr) -> Result<usize>;
-
-    /// Write to memory using the buffer starting at address. The amount written
-    /// will be returned.
-    fn write(&mut self, buf: &[u8], addr: MemoryAddr) -> Result<usize>;
 
     /// Read from the reader into memory starting at address. The amount read
     /// will be returned
@@ -40,4 +32,14 @@ pub trait Addressable {
     fn write_to<F: Write>(&self, addr: MemoryAddr, f: &mut F, count: usize) -> Result<usize>
     where
         Self: Sized;
+}
+
+pub trait Addressable {
+    /// Read from memory into the provided buffer start at address. The amount
+    /// read will be returned.
+    fn read(&self, buf: &mut [u8], addr: MemoryAddr) -> Result<usize>;
+
+    /// Write to memory using the buffer starting at address. The amount written
+    /// will be returned.
+    fn write(&mut self, buf: &[u8], addr: MemoryAddr) -> Result<usize>;
 }
