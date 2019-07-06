@@ -24,6 +24,10 @@ fn main() {
 
     v.init_memory(&mem, &k).unwrap();
 
+    let mut vcpu = vm::Vcpu::new(&v).unwrap();
+    vcpu.configure_kernel_load(&v, &mut mem, info.entry_point, info.heap_end)
+        .unwrap();
+
     let mut mmio_bus = device::Bus::new();
     let dev = Arc::new(Mutex::new(mem));
     let len = dev.lock().unwrap().len();
@@ -35,9 +39,9 @@ fn main() {
     pio_bus
         .insert(device::Range(memory::MemoryAddr(0x3f8), 8), serial)
         .unwrap();
-    let vcpu = vm::Vcpu::new(&v, mmio_bus, pio_bus).unwrap();
-    vcpu.configure_kernel_load(&v, info.entry_point, info.heap_end)
-        .unwrap();
+    vcpu.set_mmio_bus(mmio_bus);
+    vcpu.set_pio_bus(pio_bus);
+
     loop {
         vcpu.run().unwrap();
         debug!("exited");

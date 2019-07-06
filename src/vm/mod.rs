@@ -3,6 +3,7 @@ extern crate kvm_ioctls;
 extern crate log;
 
 use crate::device::Bus;
+use crate::loader;
 use crate::memory::memorymap::MemoryMmap;
 use crate::memory::{Addressable, Memory, MemoryAddr, Region};
 use log::{debug, error};
@@ -12,10 +13,13 @@ use std::slice;
 
 #[derive(Debug)]
 pub enum Error {
+    E, // TODO: Remove
+
     Kvm(io::Error),
     VcpuFd(io::Error),
     VcpuFailedRun(io::Error),
-    VcpuRegisters(io::Error),
+    VcpuRegs(io::Error),
+    VcpuSregs(io::Error),
     VcpuUnhandled,
     VcpuFailedIO,
 }
@@ -155,25 +159,34 @@ impl Vm {
 /// A wrapper around a KVM provided virtual cpu.
 pub struct Vcpu {
     fd: kvm_ioctls::VcpuFd,
-    mmio_bus: Bus,
-    pio_bus: Bus,
+    mmio_bus: Option<Bus>,
+    pio_bus: Option<Bus>,
 }
 
 impl Vcpu {
     /// Create a new virtual cpu with the provided io busses for the given vm.
-    pub fn new(vm: &Vm, mmio_bus: Bus, pio_bus: Bus) -> Result<Self> {
+    pub fn new(vm: &Vm) -> Result<Self> {
         let vcpu_fd = vm.fd.create_vcpu(0).map_err(Error::VcpuFd)?;
         Ok(Vcpu {
             fd: vcpu_fd,
-            mmio_bus,
-            pio_bus,
+            mmio_bus: None,
+            pio_bus: None,
         })
+    }
+
+    pub fn set_mmio_bus(&mut self, bus: Bus) {
+        self.mmio_bus = Some(bus);
+    }
+
+    pub fn set_pio_bus(&mut self, bus: Bus) {
+        self.pio_bus = Some(bus);
     }
 
     /// Sets the appropriate vcpu regs for booting into a linux kernel.
     pub fn configure_kernel_load(
         &self,
         vm: &Vm,
+        mem: &mut Memory,
         entry_point: MemoryAddr,
         heap_end: MemoryAddr,
     ) -> Result<()> {
@@ -183,7 +196,14 @@ impl Vcpu {
             rbp: heap_end.0 as u64,
             ..Default::default()
         };
-        self.fd.set_regs(&regs).map_err(Error::VcpuRegisters)?;
+        self.fd.set_regs(&regs).map_err(Error::VcpuRegs)?;
+
+        let mut sregs = self.fd.get_sregs().map_err(Error::VcpuSregs)?;
+
+        loader::configure_gdt_table(mem, &mut sregs).map_err(|_| Error::E)?;
+
+        self.fd.set_sregs(&sregs).map_err(Error::VcpuSregs)?;
+
         Ok(())
     }
 
@@ -194,26 +214,34 @@ impl Vcpu {
         match self.fd.run().map_err(Error::VcpuFailedRun)? {
             kvm_ioctls::VcpuExit::IoIn(addr, data) => {
                 debug!("vcpu exit: io in, addr: {}, data: {:?}", addr, data);
-                let _ = self.pio_bus.read(MemoryAddr(addr as usize), data);
+                if let Some(pio_bus) = &self.pio_bus {
+                    let _ = pio_bus.read(MemoryAddr(addr as usize), data);
+                }
                 Ok(())
             }
             kvm_ioctls::VcpuExit::IoOut(addr, data) => {
                 debug!("vcpu exit: io out, addr: {}", addr);
-                let _ = self.pio_bus.write(MemoryAddr(addr as usize), data);
+                if let Some(pio_bus) = &self.pio_bus {
+                    let _ = pio_bus.write(MemoryAddr(addr as usize), data);
+                }
                 Ok(())
             }
             kvm_ioctls::VcpuExit::MmioRead(addr, data) => {
                 debug!("vcpu exit: mmio read, addr: {}", addr);
-                self.mmio_bus
-                    .read(MemoryAddr(addr as usize), data)
-                    .map_err(|_| Error::VcpuFailedIO)?;
+                if let Some(mmio_bus) = &self.mmio_bus {
+                    mmio_bus
+                        .read(MemoryAddr(addr as usize), data)
+                        .map_err(|_| Error::VcpuFailedIO)?;
+                }
                 Ok(())
             }
             kvm_ioctls::VcpuExit::MmioWrite(addr, data) => {
                 debug!("vcpu exit: mmio write, addr: {}", addr);
-                self.pio_bus
-                    .write(MemoryAddr(addr as usize), data)
-                    .map_err(|_| Error::VcpuFailedIO)?;
+                if let Some(mmio_bus) = &self.mmio_bus {
+                    mmio_bus
+                        .write(MemoryAddr(addr as usize), data)
+                        .map_err(|_| Error::VcpuFailedIO)?;
+                }
                 Ok(())
             }
             kvm_ioctls::VcpuExit::Hlt => {
